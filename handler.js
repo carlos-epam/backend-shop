@@ -57,6 +57,14 @@ app.get("/products", (req,res) => {
   return res.json(MOCK_PRODUCTS);
 });
 
+app.get("/products/:productId", (req,res) => {
+  const {productId} = req.params;
+
+  const singleProduct = MOCK_PRODUCTS.filter(p => p.id === productId)[0];
+
+  return res.json(singleProduct);
+});
+
 app.use((req, res, next) => {
   return res.status(404).json({
     error: "Not Found",
