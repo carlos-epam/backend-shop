@@ -1,6 +1,7 @@
 const serverless = require("serverless-http");
 const express = require("express");
 const app = express();
+const cors = require("cors");
 
 app.use(express.json());
 
@@ -49,6 +50,8 @@ const MOCK_PRODUCTS = [
       "count": 6
   }
 ];
+
+app.use(cors());
 
 app.get("/products", (req,res) => {
   return res.json(MOCK_PRODUCTS);
