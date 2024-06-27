@@ -61,12 +61,3 @@ app.use((req, res, next) => {
 });
 
 exports.handler = serverless(app);
-
-
-app.use((req, res, next) => {
-  return res.status(404).json({
-    error: "Not Found",
-  });
-});
-
-exports.handler = serverless(app);
