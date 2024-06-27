@@ -51,7 +51,7 @@ const MOCK_PRODUCTS = [
 ];
 
 app.get("/products", (req,res) => {
-  return res.json({MOCK_PRODUCTS});
+  return res.json(MOCK_PRODUCTS);
 });
 
 app.use((req, res, next) => {
