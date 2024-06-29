@@ -2,8 +2,9 @@ const serverless = require("serverless-http");
 const express = require("express");
 const app = express();
 const cors = require("cors");
+const { v4: uuidv4 } = require("uuid");
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-const { DynamoDBDocumentClient, QueryCommand, GetCommand } = require("@aws-sdk/lib-dynamodb");
+const { DynamoDBDocumentClient, QueryCommand, GetCommand, PutCommand, ScanCommand } = require("@aws-sdk/lib-dynamodb");
 
 const client = new DynamoDBClient({ region: "us-east-2" });
 const ddbDocClient = DynamoDBDocumentClient.from(client);
@@ -14,10 +15,59 @@ const stockTable = "stock";
 app.use(express.json());
 app.use(cors());
 
+const fetchProducts = async () => {
+
+  try {
+    const data = await ddbDocClient.send(new ScanCommand({ TableName: productsTable }));
+    return data.Items;
+  } catch (err) {
+    console.error("Error fetching products:", err);
+    throw err;
+  }
+}
+
+
+const fetchStock = async () => {
+
+  try {
+    const data = await ddbDocClient.send(new ScanCommand({ TableName: stockTable }));
+    return data.Items;
+  } catch (err) {
+    console.error("Error fetching stock:", err);
+    throw err;
+  }
+}
+
+const combineData = (products, stock) => {
+  const stockDict = {};
+  for (const item of stock) {
+    stockDict[item.product_id.S] = parseInt(item.count.N, 10);
+  }
+
+  return products.map(product => ({
+    id: product.id,
+    count: stockDict[product.id] || 0,
+    price: product.price,
+    title: product.title,
+    description: product.description
+  }));
+}
+app.get("/products", async (req, res) => {
+
+  try {
+    const products = await fetchProducts();
+    const stock = await fetchStock();
+    const combinedData = combineData(products, stock);
+    res.json(combinedData);
+  } catch (err) {
+    res.status(500).send("Something went wrong fetching data" + err.message);
+  }
+});
+
 const fetchProductById = async (productId) => {
   const params = {
     TableName: productsTable,
-    IndexName: "id-index", 
+    IndexName: "id-index",
     KeyConditionExpression: "id = :id",
     ExpressionAttributeValues: {
       ":id": productId
@@ -61,7 +111,7 @@ app.get("/products/:productId", async (req, res) => {
 
   try {
     const product = await fetchProductById(productId);
-    
+
     if (!product) {
       return res.status(404).json({ error: "Product not found" });
     }
