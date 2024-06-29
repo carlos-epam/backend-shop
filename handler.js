@@ -64,6 +64,46 @@ app.get("/products", async (req, res) => {
   }
 });
 
+app.post("/products", async (req, res) => {
+  const {title, description, price} = req.body;
+
+  if(!title || !description || !price){
+    return res.status(400).json({error: "Missing required fields"});
+  }
+
+  const newProduct = {
+    id: uuidv4(),
+    pk: Date.now(),
+    title,
+    description,
+    price: Number(price)
+  };
+
+  const params = {
+    TableName: productsTable,
+    Item: newProduct
+  };
+
+  try{
+    await ddbDocClient.send(new PutCommand(params));
+    const stockParams = {
+      TableName: stockTable,
+      Item: {
+        pk: Date.now(),
+        product_id: newProduct.id,
+        count: 0
+      }
+    };
+
+    await ddbDocClient.send(new PutCommand(stockParams));
+
+    res.status(201).json(newProduct);
+  }catch(err){
+    console.error("Error creating new product:", err);
+    res.status(500).json({error: "Failed to create product", message: err.message});
+  }
+})
+
 const fetchProductById = async (productId) => {
   const params = {
     TableName: productsTable,
