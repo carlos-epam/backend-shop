@@ -2,59 +2,67 @@ const serverless = require("serverless-http");
 const express = require("express");
 const app = express();
 const cors = require("cors");
+const { DynamoDBClient, ScanCommand } = require("@aws-sdk/client-dynamodb");
+const { PutCommand, DynamoDBDocumentClient } = require("@aws-sdk/lib-dynamodb");
+
+const client = new DynamoDBClient({ region: "us-east-2" });
+const ddbDocClient = DynamoDBDocumentClient.from(client);
+
+const productsT = "products";
+const stockT = "stock";
 
 app.use(express.json());
-
-
-const MOCK_PRODUCTS = [
-  {
-      "description": "Short Product Description1",
-      "id": "7567ec4b-b10c-48c5-9345-fc73c48a80aa",
-      "price": 24,
-      "title": "ProductOne",
-      "count": 1
-  },
-  {
-      "description": "Short Product Description7",
-      "id": "7567ec4b-b10c-48c5-9345-fc73c48a80a1",
-      "price": 15,
-      "title": "ProductTitle",
-      "count": 2
-  },
-  {
-      "description": "Short Product Description2",
-      "id": "7567ec4b-b10c-48c5-9345-fc73c48a80a3",
-      "price": 23,
-      "title": "Product",
-      "count": 3
-  },
-  {
-      "description": "Short Product Description4",
-      "id": "7567ec4b-b10c-48c5-9345-fc73348a80a1",
-      "price": 15,
-      "title": "ProductTest",
-      "count": 4
-  },
-  {
-      "description": "Short Product Descriptio1",
-      "id": "7567ec4b-b10c-48c5-9445-fc73c48a80a2",
-      "price": 23,
-      "title": "Product2",
-      "count": 5
-  },
-  {
-      "description": "Short Product Description7",
-      "id": "7567ec4b-b10c-45c5-9345-fc73c48a80a1",
-      "price": 15,
-      "title": "ProductName",
-      "count": 6
-  }
-];
-
 app.use(cors());
 
-app.get("/products", (req,res) => {
-  return res.json(MOCK_PRODUCTS);
+const fetchProducts = async () => {
+  
+  try{
+    const data = await ddbDocClient.send(new ScanCommand({TableName: productsT}));
+    return data.Items;
+  }catch(err){
+    console.error("Error fetching products:", err);
+    throw err;
+  }
+}
+
+
+const fetchStock = async () => {
+  
+  try{
+    const data = await ddbDocClient.send(new ScanCommand({TableName: stockT}));
+    return data.Items;
+  }catch(err){
+    console.error("Error fetching stock:", err);
+    throw err;
+  }
+}
+
+
+const combineData = (products, stock) => {
+  const stockDict = {};
+  for(const item of stock){
+    stockDict[item.product_id.S] = parseInt(item.count.N, 10);
+  }
+
+  return products.map(product => ({
+  id: product.id,
+    count: stockDict[product.id]|| 0,
+    price: product.price,
+    title: product.title,
+    description: product.description
+  }));
+}
+
+app.get("/products", async (req,res) => {
+
+  try{
+    const products = await fetchProducts();
+    const stock = await fetchStock();
+    const combinedData = combineData(products, stock);
+    res.json(combinedData);
+  }catch(err){
+    res.status(500).send("Something went wrong fetching data" + err.message);
+  }
 });
 
 app.get("/products/:productId", (req,res) => {
