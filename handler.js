@@ -9,6 +9,11 @@ const { DynamoDBDocumentClient, QueryCommand, GetCommand, PutCommand, ScanComman
 const client = new DynamoDBClient({ region: "us-east-2" });
 const ddbDocClient = DynamoDBDocumentClient.from(client);
 
+const AWS = require("aws-sdk");
+
+const s3 = new AWS.S3(({ region: "us-east-2" }));
+
+
 const productsTable = "products";
 const stockTable = "stock";
 
@@ -65,10 +70,10 @@ app.get("/products", async (req, res) => {
 });
 
 app.post("/products", async (req, res) => {
-  const {title, description, price} = req.body;
+  const { title, description, price } = req.body;
 
-  if(!title || !description || !price){
-    return res.status(400).json({error: "Missing required fields"});
+  if (!title || !description || !price) {
+    return res.status(400).json({ error: "Missing required fields" });
   }
 
   const newProduct = {
@@ -84,7 +89,7 @@ app.post("/products", async (req, res) => {
     Item: newProduct
   };
 
-  try{
+  try {
     await ddbDocClient.send(new PutCommand(params));
     const stockParams = {
       TableName: stockTable,
@@ -98,9 +103,9 @@ app.post("/products", async (req, res) => {
     await ddbDocClient.send(new PutCommand(stockParams));
 
     res.status(201).json(newProduct);
-  }catch(err){
+  } catch (err) {
     console.error("Error creating new product:", err);
-    res.status(500).json({error: "Failed to create product", message: err.message});
+    res.status(500).json({ error: "Failed to create product", message: err.message });
   }
 })
 
@@ -172,6 +177,30 @@ app.get("/products/:productId", async (req, res) => {
     res.status(500).json({ error: "Something went wrong fetching data", message: err.message });
   }
 });
+
+app.get("/imports/:fileName", async (req, res) => {
+
+  try{
+
+  
+  const { fileName } = req;
+  const filePath = `uploaded/${fileName}`;
+
+  const params = {
+    Bucket: "some-b-2345",
+    Key: filePath,
+    Expires: 60,
+    ContentType: 'text/csv'
+  };
+
+  const url = await s3.getSignedUrlPromise('putObject', params);
+
+  res.status(200).json({url});
+  }catch(err){
+    res.status(500).json({message: "Something went wrong generating the signed url: " + JSON.stringify(err) })
+  }
+
+})
 
 app.use((req, res) => {
   res.status(404).json({ error: "Not Found" });
