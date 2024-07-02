@@ -1,16 +1,89 @@
-# "org" ensures this Service is used with the correct Serverless Framework Access Key.
-org: carlosless
-# "app" enables Serverless Framework Dashboard features and sharing them with other Services.
-app: backend-shop
-# "service" is the name of this project. This will also be added to your AWS resource names.
 service: backend-shop
 
 provider:
   name: aws
   runtime: nodejs20.x
+  region: us-east-2
+  environment:
+    PRODUCTS_TABLE: ${self:custom.productsTable}
+    STOCK_TABLE: ${self:custom.stockTable}
+    SQS_QUEUE_URL: 
+      Ref: CatalogItemsQueue
+    SNS_ARN:
+      Ref: CreateProductTopic
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:PutItem
+        - dynamodb:GetItem
+        - dynamodb:Scan
+      Resource: 
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.productsTable}
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.stockTable}
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+      Resource: arn:aws:s3:::${self:custom.importFilesBucket}/*
+    - Effect: Allow
+      Action:
+        - sqs:SendMessage
+        - sqs:ReceiveMessage
+        - sqs:DeleteMessage
+        - sqs:GetQueueAttributes
+      Resource: 
+        Fn::GetAtt: [CatalogItemsQueue, Arn]
+    - Effect: Allow
+      Action:
+        - sns:Publish
+      Resource: 
+        Ref: CreateProductTopic
 
 functions:
   api:
     handler: handler.handler
     events:
       - httpApi: "*"
+  
+  importFileParser:
+    handler: importFileParser.handler
+    events:
+      - s3:
+          bucket: ${self:custom.importFilesBucket}
+          event: s3:ObjectCreated:*
+          existing: true
+
+  catalogBatchProcess:
+    handler: catalogBatchProcess.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - CatalogItemsQueue
+              - Arn
+          batchSize: 5
+
+resources:
+  Resources:
+    CatalogItemsQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: catalogItemsQueue
+
+    CreateProductTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: createProductTopic
+
+    CreateProductSubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        TopicArn: 
+          Ref: CreateProductTopic
+        Protocol: email
+        Endpoint: carlos_delacruz@epam.com
+
+custom:
+  productsTable: products 
+  stockTable: stock  
+  importFilesBucket: some-b-2345 
+
