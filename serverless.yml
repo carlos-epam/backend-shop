@@ -3,12 +3,14 @@ service: backend-shop
 provider:
   name: aws
   runtime: nodejs20.x
-  region: us-east-2 
+  region: us-east-2
   environment:
     PRODUCTS_TABLE: ${self:custom.productsTable}
     STOCK_TABLE: ${self:custom.stockTable}
-    SQS_QUEUE_URL:
+    SQS_QUEUE_URL: 
       Ref: CatalogItemsQueue
+    SNS_ARN:
+      Ref: CreateProductTopic
   iamRoleStatements:
     - Effect: Allow
       Action:
@@ -20,15 +22,21 @@ provider:
         - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.stockTable}
     - Effect: Allow
       Action:
+        - s3:GetObject
+      Resource: arn:aws:s3:::${self:custom.importFilesBucket}/*
+    - Effect: Allow
+      Action:
+        - sqs:SendMessage
         - sqs:ReceiveMessage
         - sqs:DeleteMessage
         - sqs:GetQueueAttributes
       Resource: 
-        - Fn::GetAtt: [CatalogItemsQueue, Arn]
+        Fn::GetAtt: [CatalogItemsQueue, Arn]
     - Effect: Allow
       Action:
-        - s3:GetObject
-      Resource: arn:aws:s3:::${self:custom.importFilesBucket}/*
+        - sns:Publish
+      Resource: 
+        Ref: CreateProductTopic
 
 functions:
   api:
@@ -61,7 +69,21 @@ resources:
       Properties:
         QueueName: catalogItemsQueue
 
+    CreateProductTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: createProductTopic
+
+    CreateProductSubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        TopicArn: 
+          Ref: CreateProductTopic
+        Protocol: email
+        Endpoint: carlos_delacruz@epam.com
+
 custom:
-  productsTable: products
-  stockTable: stock
-  importFilesBucket: some-b-2345
+  productsTable: products 
+  stockTable: stock  
+  importFilesBucket: some-b-2345 
+
