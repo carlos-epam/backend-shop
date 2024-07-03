@@ -12,7 +12,7 @@ provider:
     SNS_ARN: 
       Ref: CreateProductTopic
     GITHUB_USERNAME: ${env:GITHUB_USERNAME}
-    GITHUB_PASSWORD: ${env:GITHUB_PASSWORD}
+    GITHUB_PASSWORD: ${env:PASSWORD}
   iamRoleStatements:
     - Effect: Allow
       Action:
@@ -85,5 +85,3 @@ custom:
   stockTable: stock
   importFilesBucket: some-b-2345
 
-plugins:
-  - serverless-dotenv-plugin

@@ -1,3 +1,6 @@
+const fs = require("fs");
+const gracefulFs = require("graceful-fs");
+gracefulFs.gracefulify(fs);
 const serverless = require("serverless-http");
 const express = require("express");
 const app = express();

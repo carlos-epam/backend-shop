@@ -9,7 +9,11 @@
     "cors": "^2.8.5",
     "csv-parser": "^3.0.0",
     "express": "^4.19.2",
+    "graceful-fs": "^4.2.11",
+    "serverless-dotenv-plugin": "^6.0.0",
     "serverless-http": "^3.2.0",
+    "serverless-plugin-common-excludes": "^4.0.0",
+    "serverless-plugin-include-dependencies": "^6.1.0",
     "uuid": "^10.0.0"
   }
 }
