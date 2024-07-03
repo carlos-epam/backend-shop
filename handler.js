@@ -11,8 +11,7 @@ const ddbDocClient = DynamoDBDocumentClient.from(client);
 
 const AWS = require("aws-sdk");
 
-const s3 = new AWS.S3(({ region: "us-east-2" }));
-
+const s3 = new AWS.S3({ region: "us-east-2" });
 
 const productsTable = "products";
 const stockTable = "stock";
@@ -20,8 +19,36 @@ const stockTable = "stock";
 app.use(express.json());
 app.use(cors());
 
-const fetchProducts = async () => {
+// Auth task 7
+const basicAuthMiddleware = (req, res, next) => {
+  const authHeader = req.headers.authorization;
 
+  if (!authHeader) {
+    return res.status(401).json({ error: 'Authorization header is missing' });
+  }
+
+  if (!authHeader.startsWith('Basic ')) {
+    return res.status(401).json({ error: 'Invalid authorization type' });
+  }
+
+  const encodedData = authHeader.slice(6); 
+  const buff = Buffer.from(encodedCreds, 'base64');
+  const plainData = buff.toString('utf-8').split(':');
+  
+  if (plainData.length !== 2) {
+    return res.status(401).json({ error: 'Invalid authorization token' });
+  }
+
+  const [username, password] = plainData;
+
+  if (username !== process.env.GITHUB_USERNAME || password !== process.env.PASSWORD) {
+    return res.status(403).json({ error: 'Invalid credentials' });
+  }
+
+  next();
+};
+
+const fetchProducts = async () => {
   try {
     const data = await ddbDocClient.send(new ScanCommand({ TableName: productsTable }));
     return data.Items;
@@ -31,9 +58,7 @@ const fetchProducts = async () => {
   }
 }
 
-
 const fetchStock = async () => {
-
   try {
     const data = await ddbDocClient.send(new ScanCommand({ TableName: stockTable }));
     return data.Items;
@@ -57,8 +82,8 @@ const combineData = (products, stock) => {
     description: product.description
   }));
 }
-app.get("/products", async (req, res) => {
 
+app.get("/products", async (req, res) => {
   try {
     const products = await fetchProducts();
     const stock = await fetchStock();
@@ -107,7 +132,7 @@ app.post("/products", async (req, res) => {
     console.error("Error creating new product:", err);
     res.status(500).json({ error: "Failed to create product", message: err.message });
   }
-})
+});
 
 const fetchProductById = async (productId) => {
   const params = {
@@ -178,29 +203,27 @@ app.get("/products/:productId", async (req, res) => {
   }
 });
 
+app.use('/imports', basicAuthMiddleware);
+
 app.get("/imports/:fileName", async (req, res) => {
+  try {
+    const { fileName } = req.params;
+    const filePath = `uploaded/${fileName}`;
 
-  try{
+    const params = {
+      Bucket: "some-b-2345",
+      Key: filePath,
+      Expires: 60,
+      ContentType: 'text/csv'
+    };
 
-  
-  const { fileName } = req;
-  const filePath = `uploaded/${fileName}`;
+    const url = await s3.getSignedUrlPromise('putObject', params);
 
-  const params = {
-    Bucket: "some-b-2345",
-    Key: filePath,
-    Expires: 60,
-    ContentType: 'text/csv'
-  };
-
-  const url = await s3.getSignedUrlPromise('putObject', params);
-
-  res.status(200).json({url});
-  }catch(err){
+    res.status(200).json({url});
+  } catch(err) {
     res.status(500).json({message: "Something went wrong generating the signed url: " + JSON.stringify(err) })
   }
-
-})
+});
 
 app.use((req, res) => {
   res.status(404).json({ error: "Not Found" });

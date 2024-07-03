@@ -9,15 +9,17 @@ provider:
     STOCK_TABLE: ${self:custom.stockTable}
     SQS_QUEUE_URL: 
       Ref: CatalogItemsQueue
-    SNS_ARN:
+    SNS_ARN: 
       Ref: CreateProductTopic
+    GITHUB_USERNAME: ${env:GITHUB_USERNAME}
+    GITHUB_PASSWORD: ${env:GITHUB_PASSWORD}
   iamRoleStatements:
     - Effect: Allow
       Action:
         - dynamodb:PutItem
         - dynamodb:GetItem
         - dynamodb:Scan
-      Resource: 
+      Resource:
         - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.productsTable}
         - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.stockTable}
     - Effect: Allow
@@ -43,7 +45,6 @@ functions:
     handler: handler.handler
     events:
       - httpApi: "*"
-  
   importFileParser:
     handler: importFileParser.handler
     events:
@@ -51,12 +52,11 @@ functions:
           bucket: ${self:custom.importFilesBucket}
           event: s3:ObjectCreated:*
           existing: true
-
   catalogBatchProcess:
     handler: catalogBatchProcess.handler
     events:
       - sqs:
-          arn:
+          arn: 
             Fn::GetAtt:
               - CatalogItemsQueue
               - Arn
@@ -68,12 +68,10 @@ resources:
       Type: AWS::SQS::Queue
       Properties:
         QueueName: catalogItemsQueue
-
     CreateProductTopic:
       Type: AWS::SNS::Topic
       Properties:
         TopicName: createProductTopic
-
     CreateProductSubscription:
       Type: AWS::SNS::Subscription
       Properties:
@@ -83,7 +81,9 @@ resources:
         Endpoint: carlos_delacruz@epam.com
 
 custom:
-  productsTable: products 
-  stockTable: stock  
-  importFilesBucket: some-b-2345 
+  productsTable: products
+  stockTable: stock
+  importFilesBucket: some-b-2345
 
+plugins:
+  - serverless-dotenv-plugin
